@@ -2,8 +2,8 @@ from flask import render_template, redirect, request, url_for, flash
 from flask_login import login_user, logout_user, login_required, \
     current_user
 from . import auth
-from .. import db
-from ..models import User
+from .. import db, github
+from ..models import User, ThirdOAuth
 from ..email import send_email
 from .forms import LoginForm, RegistrationForm, ChangePasswordForm,\
     PasswordResetRequestForm, PasswordResetForm, ChangeEmailForm
@@ -37,7 +37,39 @@ def login():
         flash('Invalid username or password.')
     return render_template('auth/login.html', form=form)
 
+@auth.route('/githublogin', methods=['GET', 'POST'])
+def githublogin():
+    return github.authorize(scope='repo')
 
+@auth.route('/callback/github')
+@github.authorized_handler
+def authorized(access_token):
+    if access_token is None:
+        flash('Login Failed!')
+        return redirect(url_for('main.index'))
+    response = github.get('user', access_token=access_token)
+    username = response['login']
+    u_id = response['id']
+    email = response['email']
+    avatar = response['avatar_url']
+    user = User.query.filter_by(email=email).first()
+    if user is None:
+        user = User(username=username, email=email)
+        db.session.add(user)
+        db.session.commit()
+        thirduser = ThirdOAuth(user_id=User.query.filter_by(email=email).first().id,
+                               oauth_name='github', oauth_access_token=access_token,
+                               oauth_id=u_id)
+        db.session.add(thirduser)
+        db.session.commit()  
+    else:
+        thirduser = ThirdOAuth.query.filter_by(oauth_id=u_id).first()
+        thirduser.oauth_access_token = access_token
+        db.session.add(thirduser)
+        db.session.commit()
+    login_user(user)
+    return redirect(request.args.get('next') or url_for('main.index'))
+    
 @auth.route('/logout')
 @login_required
 def logout():

@@ -85,6 +85,7 @@ class User(UserMixin, db.Model):
                                 lazy='dynamic',
                                 cascade='all, delete-orphan')
     comments = db.relationship('Comment', backref='author', lazy='dynamic')
+    third_oauthes = db.relationship('ThirdOAuth', backref='user', lazy='dynamic')
 
     @staticmethod
     def generate_fake(count=100):
@@ -251,6 +252,15 @@ class AnonymousUser(AnonymousUserMixin):
 
 login_manager.anonymous_user = AnonymousUser
 
+
+class ThirdOAuth(db.Model):
+    __tablename__ = 'third_oauthes'
+    id = db.Column(db.Integer, primary_key=True)
+    oauth_name = db.Column(db.String(128))
+    oauth_id = db.Column(db.String(128), unique=True, index=True)
+    oauth_access_token = db.Column(db.String(128), unique=True, index=True)
+    oauth_expires = db.Column(db.String(64), unique=True, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
 
 @login_manager.user_loader
 def load_user(user_id):

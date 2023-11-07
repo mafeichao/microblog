@@ -26,4 +26,10 @@ def test():
 
 
 if __name__ == '__main__':
+    with app.app_context():
+        #db.drop_all()
+        print("drop all")
+        #db.create_all()
+        print("create all")
+    
     manager.run()
